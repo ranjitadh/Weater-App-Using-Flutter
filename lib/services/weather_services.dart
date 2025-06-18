@@ -12,8 +12,11 @@ class WeatherServices {
   WeatherServices() : apiKey = dotenv.env['API_KEY'] ?? '';
 
   Future<Weather> fetchWeather(String cityName) async {
+    if (apiKey.isEmpty) {
+      throw Exception('API key is missing. Please configure it in .env file.');
+    }
+
     print("Fetching weather for city: $cityName");
-    print("API Key: $apiKey");
     final response = await http.get(
       Uri.parse('$baseUrl?q=$cityName&appid=$apiKey&units=metric'),
     );
@@ -60,14 +63,14 @@ class WeatherServices {
       if (placemarks.isNotEmpty) {
         String? city = placemarks[0].locality;
         print("City Name: $city");
-        return city ?? "Kathmandu"; // Fallback to your expected city
+        return city ?? "Kathmandu";
       } else {
         print("No placemarks found, using fallback city...");
-        return "Kathmandu"; // Fallback to your expected city
+        return "Kathmandu";
       }
     } catch (e) {
       print("Geocoding failed: $e");
-      return "Kathmandu"; // Fallback to your expected city
+      return "Kathmandu";
     }
   }
 }

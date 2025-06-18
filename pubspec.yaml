@@ -1,21 +1,21 @@
 name: my_app
-description: A new Flutter project.
-
+description: A Flutter weather application with real-time updates, location-based weather, and a modern UI.
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.5.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.2.1
-  geolocator: ^12.0.0
+  http: ^1.2.2
+  geolocator: ^13.0.1
   geocoding: ^3.0.0
   flutter_dotenv: ^5.1.0
-  cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  connectivity_plus: ^6.0.5
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
@@ -24,6 +24,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   assets:
     - .env
