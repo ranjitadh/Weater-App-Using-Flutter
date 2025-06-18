@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/models/weather_models.dart';
 import 'package:my_app/services/weather_services.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../Providers/theme_provider.dart';
 
 class WeatherPage extends StatefulWidget {
   const WeatherPage({super.key});
@@ -16,23 +19,40 @@ class _WeatherPageState extends State<WeatherPage>
   String? _error;
   final _cityController = TextEditingController();
   bool _isLoading = false;
+  bool _isCelsius = true;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 2.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+    );
+    _fetchInitialWeather();
   }
 
-  // Fetch weather for the specified city
-  fetchWeather(String cityName) async {
+  void _fetchInitialWeather() async {
+    try {
+      String city = await _weatherServices.getCurrentCity();
+      fetchWeather(city);
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to get location: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  void fetchWeather(String cityName) async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -45,7 +65,7 @@ class _WeatherPageState extends State<WeatherPage>
         _weather = weather;
         _error = null;
       });
-      _animationController.forward(from: 0); // Start the fade-in animation
+      _animationController.forward(from: 0);
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -58,7 +78,13 @@ class _WeatherPageState extends State<WeatherPage>
     }
   }
 
-  // Get weather icon based on condition
+  double _toFahrenheit(double celsius) => (celsius * 9 / 5) + 32;
+
+  String _formatTime(int timestamp) {
+    DateTime date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    return DateFormat('hh:mm a').format(date);
+  }
+
   IconData getWeatherIcon(String condition) {
     switch (condition.toLowerCase()) {
       case 'clear':
@@ -85,61 +111,74 @@ class _WeatherPageState extends State<WeatherPage>
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.themeMode == ThemeMode.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE0F7FA), // Light grey-blue background
       appBar: AppBar(
         title: const Text(
           'Weather App',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF26A69A), // Teal app bar
         elevation: 0,
+        actions: [
+          IconButton(
+            icon:
+                Icon(_isCelsius ? Icons.thermostat : Icons.thermostat_outlined),
+            onPressed: () {
+              setState(() {
+                _isCelsius = !_isCelsius;
+              });
+            },
+            tooltip: 'Toggle °C/°F',
+          ),
+          IconButton(
+            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: () {
+              themeProvider.toggleTheme();
+            },
+            tooltip: 'Toggle Theme',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(30.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Search bar for city name
               TextField(
                 controller: _cityController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Enter city name',
                   hintText: 'e.g., Kathmandu',
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Color(0xFF26A69A),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF26A69A),
-                      width: 2,
-                    ),
-                  ),
+                  prefixIcon: Icon(Icons.search),
                 ),
-                style: const TextStyle(color: Color(0xFF212121)),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    fetchWeather(value.trim());
+                  }
+                },
               ),
               const SizedBox(height: 20),
-              // Search button with gradient
               Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF26A69A), // Teal
-                      Color(0xFFFFCA28), // Orange
-                    ],
+                  gradient: LinearGradient(
+                    colors: isDarkMode
+                        ? [const Color(0xFF1E88E5), const Color(0xFF4FC3F7)]
+                        : [const Color(0xFF0288D1), const Color(0xFF4FC3F7)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12.0),
+                  borderRadius: BorderRadius.circular(16.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: ElevatedButton(
                   onPressed: () {
@@ -155,100 +194,117 @@ class _WeatherPageState extends State<WeatherPage>
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
                     padding: const EdgeInsets.symmetric(
                       vertical: 16.0,
                       horizontal: 32.0,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.0),
+                      borderRadius: BorderRadius.circular(16.0),
                     ),
                   ),
                   child: const Text(
-                    'Search Weather',
+                    'Get Weather',
                     style: TextStyle(
-                      color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 30),
-              // Show loading indicator
-              if (_isLoading)
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF26A69A)),
-                ),
-              // Show error if it exists
+              const SizedBox(height: 20),
+              if (_isLoading) const CircularProgressIndicator(),
               if (_error != null && !_isLoading)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16.0),
                   child: Text(
                     _error!,
                     style: const TextStyle(
-                      color: Color(0xFFD32F2F), // Red for errors
+                      color: Colors.red,
                       fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
-              // Show weather data if available
               if (_weather != null && !_isLoading)
-                FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Card(
-                    elevation: 5,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    color: const Color(0xFFF5F5F5), // Semi-transparent white
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // City name
-                          Text(
-                            _weather!.cityName,
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF212121),
+                ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Card(
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20.0),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _weather!.cityName,
+                              style: Theme.of(context).textTheme.headlineLarge,
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          // Weather icon and temperature
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                getWeatherIcon(_weather!.maincondition),
-                                color: const Color(0xFFFFCA28), // Orange icon
-                                size: 40,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                "${_weather!.temperature.round()}°C",
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.w300,
-                                  color: Color(0xFF212121),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  getWeatherIcon(_weather!.mainCondition),
+                                  color: const Color(0xFFFFCA28),
+                                  size: 48,
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          // Weather condition
-                          Text(
-                            _weather!.maincondition,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              color: Color(0xFF757575),
+                                const SizedBox(width: 12),
+                                Text(
+                                  _isCelsius
+                                      ? "${_weather!.temperature.round()}°C"
+                                      : "${_toFahrenheit(_weather!.temperature).round()}°F",
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium,
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                            Text(
+                              _weather!.mainCondition,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                            const SizedBox(height: 20),
+                            Wrap(
+                              spacing: 20,
+                              runSpacing: 20,
+                              children: [
+                                _buildWeatherDetail(
+                                  icon: Icons.water_drop,
+                                  label: 'Humidity',
+                                  value: '${_weather!.humidity}%',
+                                ),
+                                _buildWeatherDetail(
+                                  icon: Icons.wb_sunny,
+                                  label: 'Sunrise',
+                                  value: _formatTime(_weather!.sunrise),
+                                ),
+                                _buildWeatherDetail(
+                                  icon: Icons.nights_stay,
+                                  label: 'Sunset',
+                                  value: _formatTime(_weather!.sunset),
+                                ),
+                                _buildWeatherDetail(
+                                  icon: Icons.air,
+                                  label: 'Wind Speed',
+                                  value: '${_weather!.windSpeed} m/s',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -257,6 +313,30 @@ class _WeatherPageState extends State<WeatherPage>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildWeatherDetail({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 24),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
     );
   }
 }
