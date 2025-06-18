@@ -20,7 +20,7 @@ An OpenWeatherMap API key
 Installation
 
 Clone the Repository:
-git clone https://github.com/ranjitadh/Weather-App-Using-Flutter.git
+git clone https://github.com/ranjitadh/Weater-App-Using-Flutter.git
 cd Weather-App-Using-Flutter
 
 
